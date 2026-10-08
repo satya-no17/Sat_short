@@ -1,12 +1,473 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Quick Duration Shortener</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f5f7fa;
+            --container-bg: #ffffff;
+            --text-color: #333;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            width: 90%;
+            max-width: 450px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            margin: 5px 0 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .timer-display {
+            background-color: #e0e0e0;
+            color: var(--primary-color);
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .timer-display.active {
+            background-color: var(--primary-color);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* Input Styles */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="url"] {
+            width: 70%;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="url"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        input[type="time"] {
+            width: 30%;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        /* Input Validation Error */
+        .error-message {
+            color: #e74c3c;
+            background-color: #ffebee;
+            padding: 5px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: none;
+            /* Hidden by default */
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .btn-start {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-stop {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        /* Hidden divs for live tracking */
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
+
 <body>
-    <input type="text" id="inputField" placeholder="Type something...">
-    <button id="submitButton">Submit</button>
+
+    <div class="container">
+        <div class="header">
+            <h1>Shorten URL</h1>
+            <p>Limit the duration.</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error" class="error-message"></div>
+
+        <div class="input-group">
+            <input type="url" id="urlInput" placeholder="Paste URL here..." required>
+            <input type="time" id="timeInput" value="00:00">
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-start" onclick="startShortener()">Start</button>
+            <button class="btn-stop" onclick="stopShortener()" style="background-color: #e74c3c;">Stop</button>
+        </div>
+
+        <p id="duration-display" class="timer-display hidden">00:00</p>
+
+        <!-- Live Tracking Area -->
+        <div id="live-container" class="hidden">
+            <p style="text-align:center; color:#666;">Press 'Start' to track
+                live duration.</p>
+            <div id="current-time-display" style="display: none;">
+                Current: 00:00<br><br>
+                <small style="font-size:0.8rem; opacity:0.7">The site is
+                    taking roughly <span id="seconds-per-second">1</span>s to load.</small>
+            </div>
+        </div>
+
+        <!-- Summary Area -->
+        <div id="summary-container" class="hidden">
+            <p>Status:</p>
+            <h2 id="final-duration-display"></h2>
+            <button class="btn-start" onclick="reset()">Reset</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Logic Variables ---
+        let timeLeft = 0;
+        let secondsPerSecond = 1;
+        let isTracking = false;
+        let startTime = null;
+
+        // --- Event Listeners for Inputs ---
+        document.getElementById('urlInput').addEventListener('input',
+            function (e) {
+                if (this.value.trim() === "") return;
+                const url = this.value;
+                // Prevent input while tracking is active in the future view
+                if (isTracking) {
+             // Optional logic to clear input as we go, though not 
+strictly required for shortener
+        }
+            });
+
+        document.getElementById('timeInput').addEventListener('input',
+            function () {
+                const timeVal = this.value;
+
+                // Check if user wants minutes only (e.g. 5min -> 00:05) or just 
+                seconds(e.g. 30s -> 00: 30)
+                let min, sec;
+
+                if (timeVal.length > 2) {
+                    // Format like "5" -> "00:05"
+                    min = parseInt(timeVal.substring(0, 2));
+                    sec = parseInt(timeVal.substring(2));
+                } else {
+                    // Format like "30" or "30s" -> "00:30" or "00:30.00"
+                    min = parseFloat(timeVal);
+                    sec = 0;
+                }
+
+                updateDisplay(min, sec);
+            });
+
+        function formatTime(val) {
+            let m, s, ss, tt, d = new Date(Date.UTC(1970, 1, 1)); // Default 
+to 2000-02 - 16
+            const date = new Date(d.getTime() + val);
+
+            if (val === 0) return "0";
+
+            m = Math.floor(date.getUTCMin());
+            s = Math.floor(date.getUTCSeconds());
+            ss = Math.floor(date.getUTCSegint());
+            tt = formatTime(s);
+
+            // Format as MM:SS
+            let mm = Math.floor(m / 60).toString().padStart(2, '0');
+            if (!mm || s !== 0) mm = (m % 60).toString().padStart(2, '0');
+
+            return `${mm}:${ss === 0 ? "" : tt}`; // Simple display logic for 
+demo purposes
+        }
+
+        function updateDisplay(min, sec) {
+            const timerVal = formatTime(timeLeft);
+            document.getElementById('duration-display').innerHTML = timerVal;
+
+            if (timeLeft <= 1 && isTracking) {
+
+                document.getElementById('live-container').classList.add('hidden');
+                return;
+            }
+
+            if (!isTracking) {
+                document.getElementById('current-time-display').style.display
+                    = 'none';
+            } else {
+                document.getElementById('current-time-display').style.display
+                    = 'block';
+            }
+        }
+
+        // --- Main Shortener Logic ---
+
+        function startShortener() {
+            const url = document.getElementById('urlInput').value;
+            if (!url || isTracking) return;
+
+            // Validate input
+            validateInputs();
+
+            // Get Time Input to capture click time
+            const timeInput = document.getElementById('timeInput');
+            let clickedTimeStr = timeInput.value;
+
+            startTime = new Date();
+
+            // Set initial timer interval
+            if (!isTracking) {
+                clearInterval(intervalId);
+                updateDisplay(0, 0);
+                startLiveTimer(url, timeInput); // Start tracking
+            } else {
+                document.getElementById('current-time-display').style.display
+                    = 'block';
+                currentTimeDOM(); // Update display immediately on start
+            }
+
+            intervalId = setInterval(updateIntervalLogic, 100); // Run every 
+            second
+        }
+
+        function stopShortener() {
+            clearInterval(intervalId);
+            isTracking = false;
+
+            document.getElementById('live-container').classList.add('hidden');
+            updateDisplay(timeLeft, timeInput.value.length > 2 ?
+                parseInt(timeInput.value.substring(0, 2)) : (timeInput.value.length === 1 ?
+                    3600 : 1)); // Reset display logic
+        }
+
+        function updateIntervalLogic() {
+            if (isTracking) return; // Don't process until end of session to 
+keep it simple ?
+                // Actually, let's re-trigger start on a click so the user knows 
+                they started.
+
+            const url = document.getElementById('urlInput').value;
+            if (!url || !isTracking) return;
+
+            startTime = new Date();
+            updateDisplay(0, 0);
+            startLiveTimer(url, timeInput);
+        }
+
+        function currentTimeDOM() {
+            const timeVal = document.getElementById('timeInput').value;
+            let min, sec;
+
+            if (timeVal.length > 2) {
+                // Format like "5" -> "00:05"
+                min = parseInt(timeVal.substring(0, 2));
+                sec = parseInt(timeVal.substring(2));
+            } else {
+                // Format like "30" or "30s" -> "00:30" or "00:30.00"
+                min = parseFloat(timeVal);
+                sec = 0;
+            }
+
+            updateDisplay(min, sec);
+        }
+
+        function validateInputs() {
+            const urlInput = document.getElementById('urlInput').value.trim();
+            const timeInput = document.getElementById('timeInput');
+
+            // Validation Logic: 5 - 60 Minutes (inclusive)
+            if (!urlInput || !timeInput) return;
+
+            const minVal = parseInt(timeInput.value.substring(0, 2));
+            let secVal = parseInt(timeInput.value);
+
+            if (minVal <= 5 && minVal >= 60) {
+                document.getElementById('error').innerHTML = '<span 
+                style = "color:red; font-weight:bold" > ERROR: Minimum duration is 5 minutes
+                    (inclusive).</span > ';
+                document.getElementById('error').classList.add('show');
+                return false;
+            }
+
+            if (secVal < 60 && timeInput.value.length === 2) {
+                const minVal = parseInt(timeInput.value.substring(0, 2));
+                if (minVal <= 60 && minVal >= 5) {
+                    document.getElementById('error').innerHTML = '<span 
+                    style = "color:red; font-weight:bold" > ERROR: Minimum duration is 5 minutes
+                        (inclusive).</span > ';
+                    document.getElementById('error').classList.add('show');
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // --- Live Timer Helper (The tricky part) ---
+        function startLiveTimer(url, timeInput) {
+            const intervalId = setInterval(() => {
+                if (!isTracking) return;
+
+                const now = new Date();
+            // Note: To get accurate live minutes without parsing the 
+user's input every 2 seconds, 
+                // we can calculate the current time and update the display.
+
+                const m = Math.floor(now.getUTCMin());
+                let s = Math.floor(now.getUTCSeconds());
+
+                if (timeInput.value.length > 2) {
+                    const parsedTime =
+                        parseInt(timeInput.value.substring(0, 2)); // Extract "5" 
+                    s = parseInt(timeInput.value.substring(2));
+                } else {
+                    // Handle single digits like "30" or "30s" -> 00:30
+                    s = parseFloat(timeInput.value);
+                }
+
+                const secondsPerMin = 60;
+                const minutesLeft = Math.floor((timeLeft - s) /
+                    secondsPerMin);
+
+                // If user wants to keep the input in "min" format (e.g. 30s 
+                -> 00: 30),
+            // but display needs seconds, we just use the raw number here 
+            for simplicity of this demo.
+            let formattedTime = "";
+            if (s > 60) {
+                minutesLeft = Math.floor((timeLeft - s) / secondsPerMin);
+                s -= Math.floor(timeLeft * (secondsPerMin / 60)); // Remove 
+milliseconds approx
+            } else {
+                formattedTime = formatTime(secondsPerMin);
+            }
+
+            document.getElementById('current-time-display').innerHTML =
+                `${m}:${formattedTime}`;
+
+            // Update seconds display for the "Live" status
+            if (secondsPerMin > 1) {
+                const timeVal =
+                    document.getElementById('timeInput').value;
+                let min, sec;
+                if (timeVal.length > 2) {
+                    min =
+                        parseInt(timeVal.substring(0, 2)); sec = parseInt(timeVal.substring(2);
+                }
+                else { sec = (parseInt(timeVal) || 1); s = 60; } // fallback 
+                if empty
+
+                // Add milliseconds to the display to make it look dynamic
+                document.getElementById('seconds-per-second').innerText =
+                        Math.round(s / 100);
+            }
+
+        }, 1000);
+    }
+
+        function reset() {
+            clearInterval(intervalId);
+            isTracking = false;
+
+            const timeInput = document.getElementById('timeInput');
+            const urlInput = document.getElementById('urlInput').value.trim();
+            const durationDisplay =
+                document.getElementById('final-duration-display');
+            const liveContainer = document.getElementById('live-container');
+
+            if (urlInput) {
+                updateDisplay(0, 0);
+                startLiveTimer(urlInput.value);
+            } else {
+                updateDisplay(timeLeft, timeInput.value.length > 2 ?
+                    parseInt(timeInput.value.substring(0, 2)) : (timeInput.value.length === 1 ?
+                        3600 : 1));
+            }
+
+            document.getElementById('error').innerHTML = '';
+
+            document.getElementById('duration-display').classList.remove('hidden');
+
+            document.getElementById('summary-container').classList.add('hidden');
+        }
+
+    </script>
+
 </body>
+
 </html>
